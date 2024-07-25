@@ -1,7 +1,7 @@
 ### HOPM
 # Proxy killer for IRCD's, with cache system so you don't spam the api.
 
-# get API KEY from: http://api.isproxyip.com <br>
+# get API KEY's from: http://api.isproxyip.com & https://proxycheck.io/v2 <br>
 
 # rename config-example.ini to config.ini
 
