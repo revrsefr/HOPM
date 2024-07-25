@@ -2,6 +2,7 @@ import irc.bot
 import logging
 import re
 from ipaddress import ip_address, IPv4Address, IPv6Address
+from proxy_checker import ProxyChecker
 
 class ProxyCheckBot(irc.bot.SingleServerIRCBot):
     def __init__(self, server, port, nickname, channel, oper_username, oper_password, proxy_checker, admin_list):
@@ -25,21 +26,26 @@ class ProxyCheckBot(irc.bot.SingleServerIRCBot):
             logging.debug(f"Admin command received: {message}")
             if message.startswith("!hopm exempt "):
                 parts = message.split()
-                if len(parts) == 4:
+                if len(parts) >= 3:
                     command = parts[2]
-                    ip_str = parts[3]
-                    if self.is_valid_ip(ip_str) and not self.is_private_ip(ip_str):
-                        if command == 'add':
+                    if command == 'add' and len(parts) == 4:
+                        ip_str = parts[3]
+                        if self.is_valid_ip(ip_str) and not self.is_private_ip(ip_str):
                             if self.proxy_checker.exempt_ip(ip_str):
                                 connection.privmsg(self.channel, f"IP {ip_str} has been exempted from proxy checks.")
                             else:
                                 connection.privmsg(self.channel, f"IP {ip_str} is already exempted.")
-                        elif command == 'del':
+                    elif command == 'del' and len(parts) == 4:
+                        ip_str = parts[3]
+                        if self.is_valid_ip(ip_str):
                             self.proxy_checker.remove_exemption(ip_str)
                             connection.privmsg(self.channel, f"IP {ip_str} exemption has been removed.")
                     elif command == 'list':
                         exempt_list = self.proxy_checker.list_exemptions()
-                        connection.privmsg(self.channel, f"Exempted IPs: {', '.join(exempt_list)}")
+                        if exempt_list:
+                            connection.privmsg(self.channel, f"Exempted IPs: {', '.join(exempt_list)}")
+                        else:
+                            connection.privmsg(self.channel, "No IPs are currently exempted.")
 
     def on_privnotice(self, connection, event):
         message = event.arguments[0]

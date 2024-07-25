@@ -32,12 +32,13 @@ if __name__ == "__main__":
 
         api_key = config.get('proxy', 'api_key')
         api_url = config.get('proxy', 'api_url')
+        proxycheck_api_key = config.get('proxycheck', 'api_key')
+        proxycheck_api_url = config.get('proxycheck', 'api_url')
 
-        # Load admin list from config file
         admin_list = config.get('admin', 'admin_list').split(',')
 
         cache = ProxyCache(db_path='proxy_cache.db', expiry_days=1)
-        proxy_checker = ProxyChecker(api_key, api_url, cache)
+        proxy_checker = ProxyChecker(api_key, api_url, cache, proxycheck_api_key, proxycheck_api_url)
         
         bot = ProxyCheckBot(server, port, nickname, channel, oper_username, oper_password, proxy_checker, admin_list)
         bot.start()

@@ -68,10 +68,12 @@ class ProxyCache:
         self.conn.close()
 
 class ProxyChecker:
-    def __init__(self, api_key, api_url, cache):
+    def __init__(self, api_key, api_url, cache, proxycheck_api_key, proxycheck_api_url):
         self.api_key = api_key
         self.api_url = api_url
         self.cache = cache
+        self.proxycheck_api_key = proxycheck_api_key
+        self.proxycheck_api_url = proxycheck_api_url
 
     def is_proxy(self, ip_address):
         cached_result = self.cache.get_cached_result(ip_address)
@@ -79,6 +81,14 @@ class ProxyChecker:
             logging.debug(f"Cache hit for {ip_address}: {cached_result}")
             return cached_result
 
+        if self.check_proxy_api(ip_address) or self.check_proxycheck_io(ip_address):
+            self.cache.set_cached_result(ip_address, True)
+            return True
+
+        self.cache.set_cached_result(ip_address, False)
+        return False
+
+    def check_proxy_api(self, ip_address):
         params = {
             'key': self.api_key,
             'ip': ip_address,
@@ -88,13 +98,30 @@ class ProxyChecker:
             response = requests.get(self.api_url, params=params)
             response.raise_for_status()
             data = response.json()
-            is_proxy = bool(data.get('proxy'))
             logging.debug(f"API response data for {ip_address}: {data}")
-            
-            self.cache.set_cached_result(ip_address, is_proxy)
-            return is_proxy
+            return bool(data.get('proxy'))
         except requests.RequestException as e:
             logging.error(f"API request failed for {ip_address}: {e}")
+            return False
+
+    def check_proxycheck_io(self, ip_address):
+        params = {
+            'key': self.proxycheck_api_key,
+            'vpn': 1,
+            'asn': 1,
+            'node': 1,
+            'inf': 1
+        }
+        url = f"{self.proxycheck_api_url}/{ip_address}"
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            logging.debug(f"Proxycheck.io response data for {ip_address}: {data}")
+            result = data.get(ip_address, {})
+            return result.get('proxy', 'no') == 'yes'
+        except requests.RequestException as e:
+            logging.error(f"Proxycheck.io request failed for {ip_address}: {e}")
             return False
 
     def exempt_ip(self, ip_address):
