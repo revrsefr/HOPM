@@ -3,6 +3,8 @@
 
 # get API KEY's from: http://api.isproxyip.com & https://proxycheck.io/v2 <br>
 
+# python -m venv .env & pip install -r requirements.txt
+
 # rename config-example.ini to config.ini
 
 # Exemptions with:
