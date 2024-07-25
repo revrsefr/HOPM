@@ -1,0 +1,5 @@
+proxy_check_bot.log
+proxy_cache.db
+config.ini
+__pycache__
+__init__.py
