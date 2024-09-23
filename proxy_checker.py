@@ -8,9 +8,10 @@ class ProxyCache:
         self.db_path = db_path
         self.expiry_days = expiry_days
         self.conn = sqlite3.connect(self.db_path)
-        self.create_table()
+        self.create_tables()
 
-    def create_table(self):
+    def create_tables(self):
+        """Create the required tables in the database if they don't exist"""
         with self.conn:
             self.conn.execute('''
                 CREATE TABLE IF NOT EXISTS cache (
@@ -18,6 +19,13 @@ class ProxyCache:
                     is_proxy BOOLEAN,
                     exemption BOOLEAN DEFAULT 0,
                     timestamp DATETIME
+                )
+            ''')
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS exemptions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT, -- 'ip' or 'dns'
+                    value TEXT -- The actual IP or DNS exemption
                 )
             ''')
 
@@ -62,6 +70,11 @@ class ProxyCache:
     def get_exempt_list(self):
         with self.conn:
             cursor = self.conn.execute('SELECT ip FROM cache WHERE exemption = 1')
+            return [row[0] for row in cursor.fetchall()]
+
+    def list_dns_exemptions(self):
+        with self.conn:
+            cursor = self.conn.execute("SELECT value FROM exemptions WHERE type='dns'")
             return [row[0] for row in cursor.fetchall()]
 
     def __del__(self):
@@ -124,6 +137,26 @@ class ProxyChecker:
             logging.error(f"Proxycheck.io request failed for {ip_address}: {e}")
             return False
 
+    def get_ip_info(self, ip_address):
+        """Get full IP info from proxycheck.io"""
+        params = {
+            'key': self.proxycheck_api_key,
+            'vpn': 1,
+            'asn': 1,
+            'node': 1,
+            'inf': 1
+        }
+        url = f"{self.proxycheck_api_url}/{ip_address}"
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            logging.debug(f"IP info from proxycheck.io for {ip_address}: {data}")
+            return data.get(ip_address, {})
+        except requests.RequestException as e:
+            logging.error(f"Proxycheck.io request failed for {ip_address}: {e}")
+            return None
+
     def exempt_ip(self, ip_address):
         if self.cache.is_exempt(ip_address):
             return False  # Already exempted
@@ -135,3 +168,21 @@ class ProxyChecker:
 
     def list_exemptions(self):
         return self.cache.get_exempt_list()
+
+    def add_dns_exemption(self, dns_pattern):
+        with self.cache.conn:
+            cursor = self.cache.conn.execute("SELECT 1 FROM exemptions WHERE type='dns' AND value=?", (dns_pattern,))
+            if cursor.fetchone():
+                return False  # DNS exemption already exists
+            self.cache.conn.execute("INSERT INTO exemptions (type, value) VALUES ('dns', ?)", (dns_pattern,))
+            return True  # Successfully added
+
+    def remove_dns_exemption(self, dns_pattern):
+        with self.cache.conn:
+            cursor = self.cache.conn.execute("DELETE FROM exemptions WHERE type='dns' AND value=?", (dns_pattern,))
+            return cursor.rowcount > 0  # Returns True if something was deleted
+
+    def list_dns_exemptions(self):
+        with self.cache.conn:
+            cursor = self.cache.conn.execute("SELECT value FROM exemptions WHERE type='dns'")
+            return [row[0] for row in cursor.fetchall()]
