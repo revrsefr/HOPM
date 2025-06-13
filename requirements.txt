@@ -19,7 +19,7 @@ jaraco.stream==3.0.3
 jaraco.text==3.12.0
 more-itertools==10.2.0
 pytz==2024.1
-requests==2.32.2
+requests==2.32.4
 six==1.16.0
 soupsieve==2.5
 tempora==5.5.1
